@@ -1,0 +1,77 @@
+# ══════════════════════════════════════════════════════════════════
+# EcoTrace — Docker Compose (Production Overrides)
+# ══════════════════════════════════════════════════════════════════
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# ══════════════════════════════════════════════════════════════════
+
+version: "3.8"
+
+services:
+  postgres:
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    # No port exposure in production
+    ports: !reset []
+
+  redis:
+    restart: always
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    ports: !reset []
+
+  app:
+    restart: always
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      APP_URL: ${APP_URL:?Set APP_URL}
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL}
+      LOG_LEVEL: info
+      JWT_PRIVATE_KEY_PATH: /app/keys/private.pem
+      JWT_PUBLIC_KEY_PATH: /app/keys/public.pem
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-}
+      POLYGON_PRIVATE_KEY: ${POLYGON_PRIVATE_KEY:-}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+    volumes:
+      - ./keys:/app/keys:ro
+    command: >
+      sh -c "npx prisma migrate deploy && pm2-runtime ecosystem.config.js --only ecotrace-api"
+
+  worker:
+    restart: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL}
+      LOG_LEVEL: info
+      POLYGON_RPC_URL: ${POLYGON_RPC_URL:-}
+      POLYGON_PRIVATE_KEY: ${POLYGON_PRIVATE_KEY:-}
+      CONTRACT_ADDRESS: ${CONTRACT_ADDRESS:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.5"
+        reservations:
+          memory: 512M
+
+  # Remove pgAdmin in production
+  pgadmin:
+    profiles:
+      - never   # Never start in production

@@ -1,0 +1,80 @@
+# ══════════════════════════════════════════════════════════════════
+# EcoTrace — Render.com Deployment Configuration (Fallback)
+# ══════════════════════════════════════════════════════════════════
+
+services:
+  # ─── API Service ─────────────────────────────────────────────────
+  - type: web
+    name: ecotrace-api
+    runtime: docker
+    dockerfilePath: docker/Dockerfile
+    dockerContext: .
+    repo: https://github.com/your-org/ecotrace-backend
+    branch: main
+    plan: starter
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecotrace-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ecotrace-redis
+          property: connectionString
+      - key: APP_URL
+        sync: false
+      - key: JWT_PRIVATE_KEY_PATH
+        value: ./keys/private.pem
+      - key: JWT_PUBLIC_KEY_PATH
+        value: ./keys/public.pem
+      - key: POLYGON_RPC_URL
+        sync: false
+      - key: POLYGON_PRIVATE_KEY
+        sync: false
+      - key: CONTRACT_ADDRESS
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+  # ─── Worker Service ──────────────────────────────────────────────
+  - type: worker
+    name: ecotrace-worker
+    runtime: docker
+    dockerfilePath: docker/Dockerfile.worker
+    dockerContext: .
+    repo: https://github.com/your-org/ecotrace-backend
+    branch: main
+    plan: starter plus
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecotrace-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: ecotrace-redis
+          property: connectionString
+
+  # ─── Database ────────────────────────────────────────────────────
+databases:
+  - name: ecotrace-db
+    plan: starter
+    databaseName: ecotrace_db
+    user: ecotrace
+
+  # ─── Redis ───────────────────────────────────────────────────────
+  - name: ecotrace-redis
+    plan: starter
