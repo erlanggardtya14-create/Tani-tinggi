@@ -1,0 +1,238 @@
+// Prisma schema for EcoTrace — highland vegetable certification platform
+// All models support the offline-sync → AI validation → carbon scoring → blockchain certification pipeline
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── USERS ───────────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         UserRole  @default(FARMER)
+  isVerified   Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  farmer   Farmer?
+  sessions Session[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  FARMER
+  BUYER
+  ADMIN
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ─── FARMER ──────────────────────────────────────────────────────────────────
+
+model Farmer {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  fullName     String
+  phone        String?
+  farmName     String
+  farmLocation String   // e.g. "Dieng, Wonosobo, Jawa Tengah"
+  latitude     Float?
+  longitude    Float?
+  altitude     Int?     // meters above sea level
+  createdAt    DateTime @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmRecords FarmRecord[]
+
+  @@map("farmers")
+}
+
+// ─── FARM RECORD (data logged offline by farmer) ─────────────────────────────
+
+model FarmRecord {
+  id              String         @id @default(cuid())
+  farmerId        String
+  localId         String         // UUID from offline device (dedup key)
+  vegetableType   String         // e.g. "Selada", "Wortel", "Kentang"
+  vegetableWeight Float          // kg
+  fertilizerType  FertilizerType
+  fertilizerBrand String?
+  pesticidesUsed  Boolean        @default(false)
+  imageUrl        String?        // Cloudinary URL after upload
+  imageHash       String?        // SHA-256 of original image (anti-tamper)
+  capturedAt      DateTime       // when farmer took photo (offline timestamp)
+  syncedAt        DateTime?      // when it arrived at server
+  status          RecordStatus   @default(PENDING)
+  isDeleted       Boolean        @default(false) // soft delete
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  farmer       Farmer        @relation(fields: [farmerId], references: [id], onDelete: Cascade)
+  aiValidation AiValidation?
+  carbonScore  CarbonScore?
+  certificate  Certificate?
+  deliveryInfo DeliveryInfo?
+
+  @@unique([farmerId, localId]) // prevent duplicate syncs
+  @@index([farmerId, status])
+  @@index([status])
+  @@map("farm_records")
+}
+
+enum FertilizerType {
+  ORGANIC_COMPOST
+  ORGANIC_MANURE
+  ORGANIC_LIQUID
+  CHEMICAL_UREA
+  CHEMICAL_NPK
+  NONE
+}
+
+enum RecordStatus {
+  PENDING       // just synced, not yet processed
+  AI_VALIDATING // in AI queue
+  AI_REJECTED   // AI says not a valid plant photo
+  CALCULATING   // eco-score being calculated
+  CERTIFYING    // blockchain minting in progress
+  CERTIFIED     // has blockchain certificate
+  FAILED        // processing failed
+}
+
+// ─── DELIVERY / LOGISTICS ────────────────────────────────────────────────────
+
+model DeliveryInfo {
+  id              String      @id @default(cuid())
+  farmRecordId    String      @unique
+  distanceKm      Float       // distance from farm to destination market
+  vehicleType     VehicleType
+  vehicleCapacity Float?      // total capacity in kg
+  destinationCity String
+  deliveryDate    DateTime?
+
+  farmRecord  FarmRecord   @relation(fields: [farmRecordId], references: [id], onDelete: Cascade)
+  carbonScore CarbonScore?
+
+  @@map("delivery_info")
+}
+
+enum VehicleType {
+  MOTORCYCLE       // ojek/motor, < 50kg
+  PICKUP_TRUCK     // pikap, < 1 ton
+  MEDIUM_TRUCK     // truk sedang, 1-5 ton
+  HEAVY_TRUCK      // truk besar, > 5 ton
+  ELECTRIC_VEHICLE // bonus points
+}
+
+// ─── AI VALIDATION ───────────────────────────────────────────────────────────
+
+model AiValidation {
+  id            String   @id @default(cuid())
+  farmRecordId  String   @unique
+  isValidPlant  Boolean
+  detectedClass String?  // e.g. "Selada Segar", "Tanah", "Bukan Tanaman"
+  confidence    Float    // 0.0 - 1.0
+  modelVersion  String   // track which model version was used
+  processingMs  Int      // inference time in milliseconds
+  validatedAt   DateTime @default(now())
+  rawResponse   Json?    // full model output for debugging
+
+  farmRecord FarmRecord @relation(fields: [farmRecordId], references: [id], onDelete: Cascade)
+
+  @@map("ai_validations")
+}
+
+// ─── ECO-SCORE / CARBON ─────────────────────────────────────────────────────
+
+model CarbonScore {
+  id                 String   @id @default(cuid())
+  farmRecordId       String   @unique
+  deliveryInfoId     String?  @unique
+  rawCarbonKg        Float    // kg CO2e from transport
+  fertilizerPenalty  Float    // extra CO2 from chemical fertilizer
+  totalCarbonKg      Float    // sum of all penalties
+  ecoGrade           EcoGrade // A, B, C, D, F
+  ecoScore           Int      // 0-100
+  calculationVersion String   // track formula version
+  calculatedAt       DateTime @default(now())
+
+  farmRecord   FarmRecord    @relation(fields: [farmRecordId], references: [id], onDelete: Cascade)
+  deliveryInfo DeliveryInfo? @relation(fields: [deliveryInfoId], references: [id])
+
+  @@map("carbon_scores")
+}
+
+enum EcoGrade {
+  A // score 80-100: Excellent
+  B // score 60-79: Good
+  C // score 40-59: Average
+  D // score 20-39: Poor
+  F // score 0-19: Failed certification
+}
+
+// ─── CERTIFICATE (Blockchain NFT) ────────────────────────────────────────────
+
+model Certificate {
+  id              String    @id @default(cuid())
+  farmRecordId    String    @unique
+  tokenId         String?   // NFT token ID on Polygon
+  txHash          String?   // blockchain transaction hash
+  contractAddress String?   // smart contract address
+  chainId         Int       @default(80002) // Polygon Amoy testnet
+  ipfsUri         String?   // IPFS metadata URI
+  qrCodeUrl       String?   // Cloudinary URL of QR image
+  qrCodeData      String?   // raw QR payload (JWT-signed)
+  issuedAt        DateTime?
+  status          CertStatus @default(PENDING)
+  retryCount      Int       @default(0)
+  errorMessage    String?
+
+  farmRecord FarmRecord @relation(fields: [farmRecordId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([txHash])
+  @@map("certificates")
+}
+
+enum CertStatus {
+  PENDING
+  MINTING
+  MINTED
+  FAILED
+}
+
+// ─── SYNC BATCH (track bulk sync operations) ─────────────────────────────────
+
+model SyncBatch {
+  id         String   @id @default(cuid())
+  farmerId   String
+  deviceId   String
+  totalCount Int
+  success    Int      @default(0)
+  failed     Int      @default(0)
+  skipped    Int      @default(0)
+  status     String   @default("PROCESSING") // PROCESSING, COMPLETED, PARTIAL
+  syncedAt   DateTime @default(now())
+
+  @@index([farmerId])
+  @@map("sync_batches")
+}

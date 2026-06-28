@@ -1,0 +1,109 @@
+# ══════════════════════════════════════════════════════════════════
+# EcoTrace — Docker Compose (Development)
+# ══════════════════════════════════════════════════════════════════
+# Usage: docker compose up -d
+# ══════════════════════════════════════════════════════════════════
+
+version: "3.8"
+
+services:
+  # ─── PostgreSQL 15 ─────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    container_name: ecotrace-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ecotrace
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: ecotrace_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecotrace -d ecotrace_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Redis 7 ───────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: ecotrace-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    command: redis-server --appendonly yes
+
+  # ─── EcoTrace API (dev mode with hot-reload) ───────────────────
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: ecotrace-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      APP_URL: http://localhost:3000
+      DATABASE_URL: postgresql://ecotrace:secret@postgres:5432/ecotrace_db
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src:ro        # Mount source for reference (read-only)
+      - ./keys:/app/keys:ro      # Mount JWT keys
+    # In dev, override CMD to use tsx watch for hot reload
+    command: >
+      sh -c "npx prisma migrate deploy && node dist/app.js"
+
+  # ─── EcoTrace Worker ───────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    container_name: ecotrace-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://ecotrace:secret@postgres:5432/ecotrace_db
+      REDIS_URL: redis://redis:6379
+      LOG_LEVEL: debug
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ─── pgAdmin (dev only) ───────────────────────────────────────
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: ecotrace-pgadmin
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@ecotrace.id
+      PGADMIN_DEFAULT_PASSWORD: admin1234
+      PGADMIN_LISTEN_PORT: 5050
+    ports:
+      - "5050:5050"
+    depends_on:
+      - postgres
+    profiles:
+      - tools   # Only start with: docker compose --profile tools up
+
+volumes:
+  postgres_data:
+  redis_data:

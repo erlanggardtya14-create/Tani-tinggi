@@ -1,0 +1,21 @@
+# Root
+.env
+*.log
+logs/
+
+# Backend
+backend/node_modules/
+backend/dist/
+backend/logs/
+backend/.env
+backend/cache/
+backend/artifacts/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env.local
+
+# General
+.DS_Store
+*.local
