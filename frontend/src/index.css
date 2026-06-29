@@ -1,5 +1,37 @@
 @import "tailwindcss";
 
+@-webkit-keyframes pageTransition {
+  0% {
+    opacity: 0;
+    -webkit-transform: translate3d(0, 12px, 0) scale(0.98);
+    transform: translate3d(0, 12px, 0) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes pageTransition {
+  0% {
+    opacity: 0;
+    -webkit-transform: translate3d(0, 12px, 0) scale(0.98);
+    transform: translate3d(0, 12px, 0) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    -webkit-transform: translate3d(0, 0, 0) scale(1);
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.animate-page-tab {
+  will-change: transform, opacity;
+  -webkit-animation: pageTransition 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: pageTransition 320ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -19,7 +51,7 @@
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -53,11 +85,8 @@
 }
 
 #root {
-  width: 1126px;
   max-width: 100%;
   margin: 0 auto;
-  text-align: center;
-  border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
   flex-direction: column;
@@ -72,7 +101,6 @@ h1,
 h2 {
   font-family: var(--heading);
   font-weight: 500;
-  color: var(--text-h);
 }
 
 h1 {
