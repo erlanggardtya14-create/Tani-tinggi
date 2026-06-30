@@ -1,0 +1,48 @@
+# ══════════════════════════════════════════════════════════════════
+# Tani Tinggi — Infra Dev (Postgres + Redis saja)
+# ──────────────────────────────────────────────────────────────────
+# Backend & worker dijalankan LOKAL (npm run dev / dev:worker),
+# compose ini hanya menyediakan database + redis.
+# Kredensial sengaja dicocokkan dengan backend/.env (.env.example).
+#
+# Jalankan : docker compose -f docker-compose.dev.yml up -d
+# Stop     : docker compose -f docker-compose.dev.yml down
+# ══════════════════════════════════════════════════════════════════
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: tanitinggi-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tanitinggi
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: tanitinggi_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - tanitinggi_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tanitinggi -d tanitinggi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tanitinggi-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - tanitinggi_redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  tanitinggi_pgdata:
+  tanitinggi_redisdata:

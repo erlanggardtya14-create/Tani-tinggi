@@ -19,3 +19,11 @@ frontend/.env.local
 # General
 .DS_Store
 *.local
+
+# Native Infra Binaries (Postgres & Redis)
+backend/pgsql/
+backend/redis/
+backend/redis.log
+backend/redis_err.log
+backend/pw.txt
+
