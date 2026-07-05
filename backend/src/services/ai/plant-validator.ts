@@ -94,6 +94,13 @@ export async function validatePlantImage(
     return ruleBasedFallback(vegetableType, imageUrl, imageHash, start);
   }
 
+  // Detect mock/placeholder Cloudinary URLs — skip download, use rules directly
+  const isMockUrl = imageUrl.includes('/mock/') || imageUrl.includes('mock-image');
+  if (isMockUrl) {
+    logger.info('📋 Mock image URL detected (no real Cloudinary). Using rule-based validation.');
+    return ruleBasedFallback(vegetableType, imageUrl, imageHash, start);
+  }
+
   try {
     // ── Step 1: Download image ──────────────────────────────────────────
     logger.info({ imageUrl }, '📸 Downloading image for AI validation...');
@@ -256,7 +263,7 @@ function ruleBasedFallback(
     detectedClass = vegetableType;
     if (imageUrl) {
       isValidPlant = true;
-      confidence = 0.7;
+      confidence = 0.85;
     }
   }
 

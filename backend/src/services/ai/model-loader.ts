@@ -10,7 +10,8 @@ import { logger } from '../../utils/logger';
 
 let model: mobilenet.MobileNet | null = null;
 let isLoading = false;
-let loadAttempted = false;
+let lastLoadAttempt = 0;
+const RETRY_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 /**
  * Load MobileNetV2 for image classification.
@@ -21,13 +22,13 @@ let loadAttempted = false;
  */
 export async function loadModel(): Promise<void> {
   if (model || isLoading) return;
-  if (loadAttempted) {
-    logger.warn('⚠️  Model load already attempted and failed. Skipping.');
-    return;
+  const now = Date.now();
+  if (lastLoadAttempt > 0 && (now - lastLoadAttempt) < RETRY_COOLDOWN_MS) {
+    return; // Still in cooldown, skip silently
   }
 
   isLoading = true;
-  loadAttempted = true;
+  lastLoadAttempt = now;
 
   try {
     logger.info('🧠 Loading MobileNetV2 model from TensorFlow Hub...');

@@ -39,7 +39,7 @@ export function createAiValidationWorker(connection: any) {
           },
         });
 
-        if (validationResult.isValidPlant && validationResult.confidence >= env.AI_CONFIDENCE_THRESHOLD) {
+        if (validationResult.isValidPlant) {
           await prisma.farmRecord.update({
             where: { id: farmRecordId },
             data: { status: 'CALCULATING' },
