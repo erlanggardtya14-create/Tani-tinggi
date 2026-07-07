@@ -18,8 +18,8 @@ cd backend
 npm install
 cp .env.example .env   # isi kredensial
 npx prisma migrate dev
-buka setup-infra.bat
-buka run-all.bat
+setup-infra.bat # Buka di filemanager
+run-all.bat # buka di file manager
 npm run dev
 ```
 ```
