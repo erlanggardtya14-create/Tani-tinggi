@@ -1,6 +1,6 @@
 # Tani Tinggi
 
-Platform sertifikasi sayuran dataran tinggi berbasis **AI + Blockchain** — Canggih tapi Membumi.
+TaniTinggi adalah platform sertifikasi sayuran dataran tinggi berbasis AI (Kecerdasan Buatan) + Web3 (Blockchain). Aplikasi ini dirancang khusus untuk membantu petani hortikultura di daerah terpencil (yang rentan blank spot sinyal internet) melakukan audit keaslian produk secara lokal, merekam jejak emisi karbon logistik pengiriman secara otomatis, dan menerbitkan sertifikat QR-Code anti-tamper (anti-pemalsuan) yang diamankan ke Polygon Blockchain untuk divalidasi secara langsung oleh konsumen ritel modern di kota besar.
 
 ## Struktur Repo
 
