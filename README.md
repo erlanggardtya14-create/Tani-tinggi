@@ -1,4 +1,4 @@
-# 🌿 Tani Tinggi
+# Tani Tinggi
 
 Platform sertifikasi sayuran dataran tinggi berbasis **AI + Blockchain** — Canggih tapi Membumi.
 
