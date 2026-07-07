@@ -18,7 +18,13 @@ cd backend
 npm install
 cp .env.example .env   # isi kredensial
 npx prisma migrate dev
+buka setup-infra.bat
+buka run-all.bat
 npm run dev
+```
+```
+untuk stopnya:
+stop-all.bat
 ```
 
 ### Frontend
